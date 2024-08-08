@@ -48,7 +48,8 @@ public class DatabaseWriteService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    @Scheduled(cron = "0 0 6 * * *") // Runs every day at 6 AM
+    @Scheduled(cron = "* 26 14 * * *") // saniye, dakika, saat, gün, ay, yıl
+    //@Scheduled(fixedRate = 100000000) // 10 seconds in milliseconds
     public void fetchDataAndSaveToDatabase() {
         ArrayList<Printer> printers = getAllPrinterIPs();
 
@@ -91,7 +92,7 @@ public class DatabaseWriteService {
 
             if (totalPages != null) {
                 writeToDatabase(printer.getId(), totalPages);
-                logger.info("Total pages of printer {} | {} written to database: {}", printer.getModel(), printer.getIp(), totalPages);
+                logger.info("Total pages of printer id: {} | model: {} | ip: {} written to database: {}",printer.getId() ,printer.getModel(), printer.getIp(), totalPages);
             }
         } catch (Exception e) {
             logger.error(e.getMessage());
@@ -178,11 +179,8 @@ public class DatabaseWriteService {
 
     public void writeToDatabase(Integer printerId, Integer totalPages) {
         LocalDateTime datetime = LocalDateTime.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-        String date = datetime.format(formatter);
-
         String sql = "INSERT INTO usages (printerId, date, totalPages) VALUES (?, ?, ?)";
-        jdbcTemplate.update(sql, printerId, date, totalPages);
+        jdbcTemplate.update(sql, printerId, datetime, totalPages);
     }
 
 

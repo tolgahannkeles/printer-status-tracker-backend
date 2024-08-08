@@ -9,11 +9,9 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,11 +31,11 @@ public class StatusController {
     public ResponseEntity<String> getUsages() {
         logger.info("Fetching all usages from the database");
         try {
-            String sql = "SELECT * FROM USAGES";
+            String sql = "SELECT * FROM USAGES, PRINTER WHERE PRINTER.ID = USAGES.PRINTERID";
 
-            List<Map<String, Object>> books = jdbcTemplate.queryForList(sql);
+            List<Map<String, Object>> usages = jdbcTemplate.queryForList(sql);
 
-            String json = objectMapper.writeValueAsString(books);
+            String json = objectMapper.writeValueAsString(usages);
 
             return ResponseEntity.ok()
                     .header("Content-Type", "application/json") // Set content type
@@ -55,8 +53,8 @@ public class StatusController {
         try {
             String sql = "SELECT * FROM usages WHERE printerId = ?"; // Use a placeholder for bookId
 
-            List<Map<String, Object>> books = jdbcTemplate.queryForList(sql, printerId); // Pass bookId as parameter
-            String json = objectMapper.writeValueAsString(books.get(0));
+            List<Map<String, Object>> usages = jdbcTemplate.queryForList(sql, printerId); // Pass bookId as parameter
+            String json = objectMapper.writeValueAsString(usages);
             return ResponseEntity.ok()
                     .header("Content-Type", "application/json")
                     .body(json);
@@ -68,7 +66,67 @@ public class StatusController {
         }
     }
 
+    @PostMapping("/byDate")
+    public ResponseEntity<?> getUsageByDate(@RequestBody Map<String, Object> request) throws JsonProcessingException {
+        logger.info("Status attempt by date: {}", request.get("date"));
 
+        try {
+            String date = request.get("date").toString();
+
+            // Query for the user by username
+            String sql = "SELECT * FROM usages WHERE date = ?";
+            List<Map<String, Object>> usages = jdbcTemplate.queryForList(sql, date);
+
+            if (usages.isEmpty()) {
+                HashMap<String,String> error = new HashMap<>();
+                error.put("message", "No usage found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+            }
+
+            String json = objectMapper.writeValueAsString(usages);
+            return ResponseEntity.ok()
+                    .header("Content-Type", "application/json")
+                    .body(json);
+
+
+        } catch (Exception e) {
+            logger.error("Error during status request by date", e);
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "An error occurred while processing the request.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(objectMapper.writeValueAsString(errorResponse));
+        }
+    }
+
+    @PostMapping("/byIp")
+    public ResponseEntity<?> getUsageByIp(@RequestBody Map<String, Object> request) throws JsonProcessingException {
+        logger.info("Status attempt by ip: {}", request.get("ip"));
+
+        try {
+            String date = request.get("ip").toString();
+
+            // Query for the user by username
+            String sql = "select * from printer join usages on printerId=id WHERE ip = ?";
+            List<Map<String, Object>> usages = jdbcTemplate.queryForList(sql, date);
+
+            if (usages.isEmpty()) {
+                HashMap<String,String> error = new HashMap<>();
+                error.put("message", "No usage found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+            }
+
+            String json = objectMapper.writeValueAsString(usages);
+            return ResponseEntity.ok()
+                    .header("Content-Type", "application/json")
+                    .body(json);
+
+
+        } catch (Exception e) {
+            logger.error("Error during status request by ip", e);
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "An error occurred while processing the request.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(objectMapper.writeValueAsString(errorResponse));
+        }
+    }
 
 
 }
