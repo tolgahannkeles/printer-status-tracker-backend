@@ -1,4 +1,5 @@
 DROP TRIGGER IF EXISTS dailyUsageTrigger;
+
 DELIMITER //
 
 CREATE TRIGGER dailyUsageTrigger
@@ -6,16 +7,18 @@ BEFORE INSERT ON usages
 FOR EACH ROW
 BEGIN
     DECLARE latestTotalPages INT;
+    DECLARE calculatedDailyUsage INT;
 
     -- En son tarihteki totalPages değerini almak için
     SELECT totalPages
     INTO latestTotalPages
     FROM usages
-    WHERE date = (SELECT MAX(date) FROM usages where printerId=NEW.printerId)
+    WHERE printerId = NEW.printerId and date = (SELECT MAX(date) FROM usages where printerId=NEW.printerId)
     LIMIT 1;
 
     -- dailyUsage hesapla
-    SET NEW.dailyUsage = NEW.totalPages - IFNULL(latestTotalPages, 0);
+    SET calculatedDailyUsage = NEW.totalPages - IFNULL(latestTotalPages, 0);
+    SET NEW.dailyUsage = calculatedDailyUsage;
 END;
 //
 

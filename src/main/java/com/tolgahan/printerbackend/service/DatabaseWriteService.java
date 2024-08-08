@@ -48,7 +48,7 @@ public class DatabaseWriteService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    @Scheduled(cron = "* 26 14 * * *") // saniye, dakika, saat, gün, ay, yıl
+    @Scheduled(cron = "* 41 15 * * *") // saniye, dakika, saat, gün, ay, yıl
     //@Scheduled(fixedRate = 100000000) // 10 seconds in milliseconds
     public void fetchDataAndSaveToDatabase() {
         ArrayList<Printer> printers = getAllPrinterIPs();
