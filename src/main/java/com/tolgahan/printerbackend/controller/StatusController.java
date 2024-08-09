@@ -68,6 +68,7 @@ public class StatusController {
 
     @PostMapping("/byDate")
     public ResponseEntity<?> getUsageByDate(@RequestBody Map<String, Object> request) throws JsonProcessingException {
+        //Date should be in "yyyy-mm-dd hh-mm-ss" format
         logger.info("Status attempt by date: {}", request.get("date"));
 
         try {

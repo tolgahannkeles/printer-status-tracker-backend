@@ -1,24 +1,35 @@
-DROP TRIGGER IF EXISTS dailyUsageTrigger;
-
 DELIMITER //
 
 CREATE TRIGGER dailyUsageTrigger
 BEFORE INSERT ON usages
 FOR EACH ROW
 BEGIN
-    DECLARE latestTotalPages INT;
-    DECLARE calculatedDailyUsage INT;
+    DECLARE latestMono INT DEFAULT 0;
+    DECLARE latestColor INT DEFAULT 0;
 
-    -- En son tarihteki totalPages değerini almak için
-    SELECT totalPages
-    INTO latestTotalPages
+    DECLARE calculatedDailyMonoUsage INT;
+    DECLARE calculatedDailyColorUsage INT;
+
+    -- En son tarihteki monoCount ve colorCount değerlerini almak için
+    SELECT
+        monoTotal,
+        colorTotal
+	INTO
+        latestMono,
+        latestColor
     FROM usages
-    WHERE printerId = NEW.printerId and date = (SELECT MAX(date) FROM usages where printerId=NEW.printerId)
+    WHERE printerId = NEW.printerId
+    AND date = (SELECT MAX(date) FROM usages WHERE printerId = NEW.printerId)
     LIMIT 1;
 
     -- dailyUsage hesapla
-    SET calculatedDailyUsage = NEW.totalPages - IFNULL(latestTotalPages, 0);
-    SET NEW.dailyUsage = calculatedDailyUsage;
+    SET calculatedDailyMonoUsage = NEW.monoTotal - IFNULL(latestMono, 0);
+    SET calculatedDailyColorUsage = NEW.colorTotal - IFNULL(latestColor, 0);
+
+    -- Güncellenmiş değerleri yeni kayıtla birlikte sakla
+    SET NEW.monoCount = calculatedDailyMonoUsage;
+    SET NEW.colorCount = calculatedDailyColorUsage;
+
 END;
 //
 

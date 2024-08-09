@@ -2,11 +2,17 @@ package com.tolgahan.printerbackend.model;
 
 public class Usage {
     private String date;
-    private Integer usage;
+    private Integer blackWhite;
+    private Integer color;
 
-    public Usage(String date, Integer usage) {
+    public Usage(String date, Integer blackWhite, Integer color) {
         this.date = date;
-        this.usage = usage;
+        this.blackWhite = blackWhite;
+        this.color = color;
+    }
+    public Usage(String date, Integer blackWhite) {
+        this.date = date;
+        this.blackWhite = blackWhite;
     }
 
     public String getDate() {
@@ -17,11 +23,19 @@ public class Usage {
         this.date = date;
     }
 
-    public Integer getUsage() {
-        return usage;
+    public Integer getBlackWhite() {
+        return blackWhite;
     }
 
-    public void setUsage(Integer usage) {
-        this.usage = usage;
+    public void setBlackWhite(Integer blackWhite) {
+        this.blackWhite = blackWhite;
+    }
+
+    public Integer getColor() {
+        return color;
+    }
+
+    public void setColor(Integer color) {
+        this.color = color;
     }
 }
