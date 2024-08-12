@@ -11,6 +11,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +30,7 @@ public class StatusController {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
     }
-    @GetMapping("")
+    @GetMapping
     public ResponseEntity<String> getUsages() {
         logger.info("Fetching all usages from the database");
         try {
@@ -68,27 +71,38 @@ public class StatusController {
 
     @PostMapping("/byDate")
     public ResponseEntity<?> getUsageByDate(@RequestBody Map<String, Object> request) throws JsonProcessingException {
-        //Date should be in "yyyy-mm-dd hh-mm-ss" format
-        logger.info("Status attempt by date: {}", request.get("date"));
+        // Date should be in "yyyy-MM-dd" format
+        logger.info("Fetching usage data for date: {}", request.get("date"));
 
         try {
-            String date = request.get("date").toString();
+            // Input date in "yyyy-MM-dd" format
+            String dateStr = request.get("date").toString();
 
-            // Query for the user by username
-            String sql = "SELECT * FROM usages WHERE date = ?";
-            List<Map<String, Object>> usages = jdbcTemplate.queryForList(sql, date);
+            // Convert the input date to LocalDate
+            LocalDate date = LocalDate.parse(dateStr);
+
+            // Calculate start and end of the day
+            LocalDateTime startOfDay = date.atStartOfDay();
+            LocalDateTime endOfDay = date.plusDays(1).atStartOfDay().minusNanos(1);
+
+            // Convert LocalDateTime to Timestamp
+            Timestamp startTimestamp = Timestamp.valueOf(startOfDay);
+            Timestamp endTimestamp = Timestamp.valueOf(endOfDay);
+
+            // SQL query to filter records between start and end of the day
+            String sql = "SELECT * FROM usages WHERE date BETWEEN ? AND ?";
+            List<Map<String, Object>> usages = jdbcTemplate.queryForList(sql, startTimestamp, endTimestamp);
 
             if (usages.isEmpty()) {
-                HashMap<String,String> error = new HashMap<>();
+                Map<String, String> error = new HashMap<>();
                 error.put("message", "No usage found");
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(objectMapper.writeValueAsString(error));
             }
 
             String json = objectMapper.writeValueAsString(usages);
             return ResponseEntity.ok()
                     .header("Content-Type", "application/json")
                     .body(json);
-
 
         } catch (Exception e) {
             logger.error("Error during status request by date", e);
@@ -97,6 +111,7 @@ public class StatusController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(objectMapper.writeValueAsString(errorResponse));
         }
     }
+
 
     @PostMapping("/byIp")
     public ResponseEntity<?> getUsageByIp(@RequestBody Map<String, Object> request) throws JsonProcessingException {
