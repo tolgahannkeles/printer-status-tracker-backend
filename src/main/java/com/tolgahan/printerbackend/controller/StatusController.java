@@ -30,6 +30,7 @@ public class StatusController {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
     }
+
     @GetMapping
     public ResponseEntity<String> getUsages() {
         logger.info("Fetching all usages from the database");
@@ -75,23 +76,15 @@ public class StatusController {
         logger.info("Fetching usage data for date: {}", request.get("date"));
 
         try {
-            // Input date in "yyyy-MM-dd" format
-            String dateStr = request.get("date").toString();
+            // Input date in "yyyy-MM" format
+            String date = request.get("date").toString();
 
-            // Convert the input date to LocalDate
-            LocalDate date = LocalDate.parse(dateStr);
-
-            // Calculate start and end of the day
-            LocalDateTime startOfDay = date.atStartOfDay();
-            LocalDateTime endOfDay = date.plusDays(1).atStartOfDay().minusNanos(1);
-
-            // Convert LocalDateTime to Timestamp
-            Timestamp startTimestamp = Timestamp.valueOf(startOfDay);
-            Timestamp endTimestamp = Timestamp.valueOf(endOfDay);
+            // Query for the user by username
+            String datePattern = date + "%";
 
             // SQL query to filter records between start and end of the day
-            String sql = "SELECT * FROM usages WHERE date BETWEEN ? AND ?";
-            List<Map<String, Object>> usages = jdbcTemplate.queryForList(sql, startTimestamp, endTimestamp);
+            String sql = "SELECT * FROM usages,printer WHERE date LIKE ? and printerId=id";
+            List<Map<String, Object>> usages = jdbcTemplate.queryForList(sql, datePattern);
 
             if (usages.isEmpty()) {
                 Map<String, String> error = new HashMap<>();
@@ -125,7 +118,7 @@ public class StatusController {
             List<Map<String, Object>> usages = jdbcTemplate.queryForList(sql, date);
 
             if (usages.isEmpty()) {
-                HashMap<String,String> error = new HashMap<>();
+                HashMap<String, String> error = new HashMap<>();
                 error.put("message", "No usage found");
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
             }
@@ -144,5 +137,35 @@ public class StatusController {
         }
     }
 
+    @PostMapping("/totalStatus")
+    public ResponseEntity<?> getTotalStatus(@RequestBody Map<String, Object> request) throws JsonProcessingException {
+        logger.info("Total status attempt by ip: {}", request.get("ip"));
 
+        try {
+            String date = request.get("date").toString();
+
+            // Query for the user by username
+            String datePattern = date + "%";
+
+            String sql = "SELECT SUM(monoCount) AS totalMonoCount, SUM(colorCount) AS totalColorCount FROM usages WHERE date LIKE ?";
+            List<Map<String, Object>> usages = jdbcTemplate.queryForList(sql, datePattern);
+
+            if (usages.isEmpty()) {
+                HashMap<String, String> error = new HashMap<>();
+                error.put("message", "No usage found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+            }
+
+            String json = objectMapper.writeValueAsString(usages.get(0));
+            return ResponseEntity.ok()
+                    .header("Content-Type", "application/json")
+                    .body(json);
+
+        } catch (Exception e) {
+            logger.error("Error during total status request by ip", e);
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "An error occurred while processing the request.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(objectMapper.writeValueAsString(errorResponse));
+        }
+    }
 }

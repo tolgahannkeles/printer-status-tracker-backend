@@ -1,6 +1,8 @@
 package com.tolgahan.printerbackend.service;
 
 import com.tolgahan.printerbackend.model.Printer;
+import com.tolgahan.printerbackend.model.StatusExcel;
+import com.tolgahan.printerbackend.utils.ExcelToDB;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -13,6 +15,8 @@ import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -28,6 +32,7 @@ import javax.net.ssl.SSLContext;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.sql.Date;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
@@ -37,6 +42,7 @@ public class DatabaseWriteService {
     private final JdbcTemplate jdbcTemplate;
     private final Logger logger = LoggerFactory.getLogger(DatabaseWriteService.class);
     private final RestTemplate restTemplate = new RestTemplate();
+    private final static String EXCEL_PATH="C:\\printer\\printer_status.xlsx";
 
     @Autowired
     public DatabaseWriteService(JdbcTemplate jdbcTemplate) {
@@ -44,7 +50,7 @@ public class DatabaseWriteService {
     }
 
     @Scheduled(cron = "* 00 00 06 * *") // saniye, dakika, saat, gün, ay, yıl
-    //@Scheduled(fixedRate = 100000000) // 10 seconds in milliseconds
+    //@Scheduled(fixedRate = 1200000) // 10 seconds in milliseconds
     public void fetchDataAndSaveToDatabase() {
         System.out.println("Starting fetchDataAndSaveToDatabase");
         ArrayList<Printer> printers = getAllPrinterIPs();
@@ -52,8 +58,44 @@ public class DatabaseWriteService {
         for (Printer printer : printers) {
             fetchTotalAndWriteToDatabase(printer);
         }
-        System.out.println("Ending fetchDataAndSaveToDatabase");
 
+        writeExcel();
+        System.out.println("Ending fetchDataAndSaveToDatabase");
+    }
+
+    public void writeExcel() {
+        // Date should be in "yyyy-MM-dd" format
+        logger.info("Started to writing usage data to excel: ");
+
+        try {
+
+            // Query for the user by username
+            LocalDateTime localDateTime= LocalDateTime.now();
+
+            String datePattern = localDateTime.toString().substring(0,7) + "%";
+
+            // SQL query to filter records between start and end of the day
+            String sql = "SELECT * FROM usages,printer WHERE date LIKE ? and printerId=id";
+            List<Map<String, Object>> usages = jdbcTemplate.queryForList(sql, datePattern);
+            List<StatusExcel> statusExcels = new ArrayList<>();
+            for (Map<String, Object> usage : usages) {
+                statusExcels.add(new StatusExcel(
+                        (Integer) usage.get("id"),
+                        (String) usage.get("ip"),
+                        (String) usage.get("name"),
+                        (LocalDateTime) usage.get("date"),
+                        (Long) usage.get("monoCount"),
+                        (Long) usage.get("colorCount"),
+                        (Long) usage.get("monoTotal"),
+                        (Long) usage.get("colorTotal")));
+            }
+
+            ExcelToDB.writeToExcel(EXCEL_PATH,localDateTime.toString().substring(0,7), statusExcels);
+
+
+        } catch (Exception e) {
+            logger.error("Error during status request by date", e);
+        }
     }
 
 
@@ -233,12 +275,12 @@ public class DatabaseWriteService {
 
         if (totalPages.get("color") == null) {
             sql = "INSERT INTO usages (printerId, date, monoTotal) VALUES (?, ?, ?)";
-            logger.info("Total pages of printer id: {} | model: {} | ip: written to database{}", printerId, datetime ,totalPages.get("mono"));
+            logger.info("Total pages of printer id: {} | model: {} | ip: written to database{}", printerId, datetime, totalPages.get("mono"));
 
             jdbcTemplate.update(sql, printerId, datetime, totalPages.get("mono"));
         } else {
             sql = "INSERT INTO usages (printerId, date, monoTotal, colorTotal) VALUES (?, ?, ?, ?)";
-            logger.info("Total pages of printer id: {} | model: {} | ip: written to database:{}", printerId, totalPages.get("mono"),totalPages.get("color"));
+            logger.info("Total pages of printer id: {} | model: {} | ip: written to database:{}", printerId, totalPages.get("mono"), totalPages.get("color"));
 
             jdbcTemplate.update(sql, printerId, datetime, totalPages.get("mono"), totalPages.get("color"));
         }

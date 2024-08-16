@@ -2,6 +2,7 @@ package com.tolgahan.printerbackend.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tolgahan.printerbackend.utils.PingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +52,43 @@ public class PrinterController {
         }
     }
 
+    @GetMapping("/ping")
+    public ResponseEntity<String> pingAllPrinters(@RequestParam(value = "isOk", required = false) Boolean isOk) throws JsonProcessingException {
+        logger.info("Start to ping all printers");
+        try {
+            String sql = "SELECT * FROM printer";
+            List<Map<String, Object>> printers = jdbcTemplate.queryForList(sql);
+
+            for (Map<String, Object> printer : printers) {
+                String ip = (String) printer.get("ip");
+                if (ip != null && !ip.isEmpty()) {
+                    boolean pingResult = PingUtils.isReachable(ip);
+                    printer.put("isAvailable", pingResult);
+                } else {
+                    printer.put("isAvailable", false); // IP adresi yoksa sonuç da false
+                }
+            }
+            System.out.println(isOk);
+            List<Map<String, Object>> filteredPrinters;
+            if (isOk == null) {
+                filteredPrinters = printers;
+            } else {
+                filteredPrinters = printers.stream()
+                        .filter(printer -> (boolean) printer.get("isAvailable") == isOk)
+                        .toList();
+            }
+
+
+            String json = objectMapper.writeValueAsString(filteredPrinters);
+            return ResponseEntity.ok()
+                    .header("Content-Type", "application/json")
+                    .body(json);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(objectMapper.writeValueAsString(Map.of("error", e.getMessage())));
+        }
+    }
     @GetMapping("/{printerId}")
     public ResponseEntity<String> getPrinterById(@PathVariable String printerId) throws JsonProcessingException {
         logger.info("Fetching printer with ID: {}", printerId);
